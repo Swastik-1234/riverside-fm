@@ -1,0 +1,42 @@
+# Node.js dependencies
+node_modules/
+
+# Logs
+*.log
+
+# Environment variables
+.env
+
+# Build output
+/dist
+/build
+
+# Docker
+docker-compose.override.yml
+Dockerfile
+
+# NGINX or reverse proxy configurations
+nginx.conf
+
+# Temporary files
+*.tmp
+
+# IDE and editor config
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# MongoDB data (if stored locally)
+data/
+
+# Prisma migration files (optional, if you don’t want to commit migrations)
+prisma/migrations/
+
+# Coverage directory used by tools like Jest or Mocha
+coverage/
+
+# Package-lock files (optional, if you’re using yarn or another lock file manager)
+package-lock.json
