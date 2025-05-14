@@ -32,7 +32,7 @@ export default function LoginForm({ setUser }: any) {
     });
 
     // ✅ redirect
-    navigate("/create-room");
+    navigate("/home");
   } catch (err) {
     console.error("Login failed:", err);
     setError("Invalid credentials");

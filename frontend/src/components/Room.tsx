@@ -1,90 +1,211 @@
-import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
-import { socket } from "@/lib/socket";
+// import React, { useEffect, useRef, useState } from "react";
+// import { useParams } from "react-router-dom";
+// import io from "socket.io-client";
 
-export default function Room() {
+// const socket = io("http://localhost:5000");
+
+// const Room = () => {
+//   const { roomId } = useParams();
+//   const localVideoRef = useRef<HTMLVideoElement>(null);
+//   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+//   const pcRef = useRef<RTCPeerConnection | null>(null);
+
+//   const startLocalMedia = async () => {
+//     const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+//     if (localVideoRef.current) {
+//       localVideoRef.current.srcObject = localStream;
+//     }
+
+//     const pc = new RTCPeerConnection({
+//       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+//     });
+//     pcRef.current = pc;
+
+//     // Add local tracks to the peer connection
+//     localStream.getTracks().forEach(track => {
+//       pc.addTrack(track, localStream);
+//     });
+
+//     // Set up ICE handling
+//     pc.onicecandidate = (event) => {
+//       if (event.candidate) {
+//         socket.emit("candidate", { candidate: event.candidate, roomId });
+//       }
+//     };
+
+//     // Set up remote video stream
+//     pc.ontrack = (event) => {
+//       setTimeout(() => {
+//         if (remoteVideoRef.current) {
+//           remoteVideoRef.current.srcObject = event.streams[0];
+//         }
+//       }, 0);
+//     };
+
+//     // Join the room
+//     socket.emit("join", { roomId });
+
+//     socket.on("joined", async () => {
+//       const offer = await pc.createOffer();
+//       await pc.setLocalDescription(offer);
+//       socket.emit("offer", { offer, roomId });
+//     });
+
+//     socket.on("offer", async ({ offer }) => {
+//       await pc.setRemoteDescription(new RTCSessionDescription(offer));
+//       const answer = await pc.createAnswer();
+//       await pc.setLocalDescription(answer);
+//       socket.emit("answer", { answer, roomId });
+//     });
+
+//     socket.on("answer", async ({ answer }) => {
+//       await pc.setRemoteDescription(new RTCSessionDescription(answer));
+//     });
+
+//     socket.on("candidate", async ({ candidate }) => {
+//       try {
+//         await pc.addIceCandidate(new RTCIceCandidate(candidate));
+//       } catch (err) {
+//         console.error("Error adding received ice candidate", err);
+//       }
+//     });
+//   };
+
+//   useEffect(() => {
+//     startLocalMedia();
+
+//     return () => {
+//       socket.disconnect();
+//       pcRef.current?.close();
+//     };
+//   }, []);
+
+//   return (
+//     <div className="p-4">
+//       <h2 className="text-xl font-bold mb-4">
+//         Room: <span className="bg-gray-200 px-2 py-1 rounded">{roomId}</span>
+//       </h2>
+//       <div className="flex gap-4">
+//         <video ref={localVideoRef} autoPlay muted className="rounded shadow w-64 h-48" />
+//         <video ref={remoteVideoRef} autoPlay className="rounded shadow w-64 h-48" />
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default Room;
+
+
+import React, { useEffect, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
+import io from "socket.io-client";
+
+const socket = io("http://localhost:5000");
+
+const Room = () => {
   const { roomId } = useParams();
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
 
-  useEffect(() => {
+  // Prevent useEffect dependency array from changing size
+  const [initialized, setInitialized] = useState(false);
+
+  const startLocalMedia = async () => {
+    const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = localStream;
+    }
+
     const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: "stun:stun.l.google.com:19302" }
-      ]
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
-    setPeerConnection(pc);
+    pcRef.current = pc;
 
-    // Connect to socket
-    socket.connect();
-
-    socket.emit("join-room", {
-      roomId,
-      userId: socket.id
+    // Add local tracks to the peer connection
+    localStream.getTracks().forEach(track => {
+      pc.addTrack(track, localStream);
     });
 
-    // Get user media
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-
-        stream.getTracks().forEach(track => pc.addTrack(track, stream));
-      });
-
-    // Incoming track from remote peer
-    pc.ontrack = (event) => {
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-      }
-    };
-
-    // ICE Candidate handling
+    // Set up ICE handling
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        socket.emit("signal", {
-          roomId,
-          signalData: { candidate: event.candidate }
-        });
+        console.log("Sending ICE candidate:", event.candidate);
+        socket.emit("candidate", { candidate: event.candidate, roomId });
       }
     };
 
-    // Receive signal from remote peer
-    socket.on("signal", async (signalData) => {
-      if (signalData.offer) {
-        await pc.setRemoteDescription(new RTCSessionDescription(signalData.offer));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        socket.emit("signal", {
-          roomId,
-          signalData: { answer }
-        });
-      } else if (signalData.answer) {
-        await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
-      } else if (signalData.candidate) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
-        } catch (err) {
-          console.error("Error adding ICE candidate", err);
+    // Set up remote video stream
+    pc.ontrack = (event) => {
+      setTimeout(() => {
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = event.streams[0];
         }
-      }
+      }, 0);
+    };
+
+    // Join the room
+    socket.emit("join-room", { roomId });
+
+    socket.on("user-joined", ({ socketId }) => {
+      console.log("User joined:", socketId);
+      // Send offer to the new user
+      createOffer();
     });
 
-    return () => {
-      socket.disconnect();
-      pc.close();
-    };
-  }, [roomId]);
+    socket.on("offer", async ({ offer, from }) => {
+      console.log("Offer received from:", from);
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socket.emit("answer", { answer, roomId });
+    });
+
+    socket.on("answer", async ({ answer, from }) => {
+      console.log("Answer received from:", from);
+      await pc.setRemoteDescription(new RTCSessionDescription(answer));
+    });
+
+    socket.on("candidate", async ({ candidate, from }) => {
+      console.log("ICE Candidate received from:", from);
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.error("Error adding ICE candidate", err);
+      }
+    });
+  };
+
+  const createOffer = async () => {
+    try {
+      const offer = await pcRef.current?.createOffer();
+      await pcRef.current?.setLocalDescription(offer);
+      socket.emit("offer", { offer, roomId });
+      console.log("Offer sent to the room:", offer);
+    } catch (err) {
+      console.error("Error creating offer:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (initialized) return; // Prevent re-initializing if it's already done
+    if (roomId) {
+      startLocalMedia();
+      setInitialized(true); // Mark as initialized
+    }
+  }, [roomId, initialized]); // Add 'initialized' to prevent reinitializing
 
   return (
-    <div className="p-6 flex flex-col items-center">
-      <h2 className="text-xl font-bold mb-4">Room: {roomId}</h2>
+    <div className="p-4">
+      <h2 className="text-xl font-bold mb-4">
+        Room: <span className="bg-gray-200 px-2 py-1 rounded">{roomId}</span>
+      </h2>
       <div className="flex gap-4">
-        <video ref={localVideoRef} autoPlay playsInline muted className="w-64 h-48 bg-black rounded" />
-        <video ref={remoteVideoRef} autoPlay playsInline className="w-64 h-48 bg-black rounded" />
+        <video ref={localVideoRef} autoPlay muted className="rounded shadow w-64 h-48" />
+        <video ref={remoteVideoRef} autoPlay className="rounded shadow w-64 h-48" />
       </div>
     </div>
   );
-}
+};
+
+export default Room;
