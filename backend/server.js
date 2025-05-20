@@ -1,58 +1,4 @@
-// const express = require("express");
-// const cors = require("cors");
-// const dotenv = require("dotenv");
-// const connectDB = require("./config/db");
-// const http = require("http");
-// const socketIO = require("socket.io");
 
-// dotenv.config();
-// connectDB();
-
-// const app = express();
-// const server = http.createServer(app);
-// const io = socketIO(server, {
-//   cors: {
-//     origin: "*", // Allow all origins for now
-//     methods: ["GET", "POST"],
-//   },
-// });
-
-// app.use(cors());
-// app.use(express.json());
-
-// // Routes
-// app.use("/api/auth", require("./routes/auth"));
-// app.use("/api/recordings", require("./routes/recordings"));
-// app.use("/api/rooms", require("./routes/rooms"));
-
-
-// io.on("connection", (socket) => {
-//   console.log("User connected:", socket.id);
-
-//   socket.on("join-room", ({ roomId }) => {
-//     socket.join(roomId);
-
-//     // Notify existing users in the room about the new user
-//     socket.to(roomId).emit("user-joined", { socketId: socket.id });
-//   });
-
-//   // Handle signaling between two users
-//   socket.on("signal", ({ to, signalData }) => {
-//     io.to(to).emit("signal", {
-//       from: socket.id,
-//       signalData,
-//     });
-//   });
-
- 
-
-//   socket.on("disconnect", () => {
-//     console.log("User disconnected:", socket.id);
-//   });
-// });
-
-// const PORT = process.env.PORT || 5000;
-// server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 const express = require("express");
 const cors = require("cors");
@@ -60,23 +6,28 @@ const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const http = require("http");
 const socketIO = require("socket.io");
+const renderRoutes = require('./routes/render');
 
 dotenv.config();
 connectDB();
 
 const app = express();
 const server = http.createServer(app);
-const uploadRoutes = require('./routes/upload');
-
-// Allow CORS for all routes or specify certain routes
+app.use(express.json());
 app.use(cors({
   origin: "*", // Allows all origins. Replace with your frontend URL for more security (e.g., 'http://localhost:5173')
-  methods: ["GET", "POST"],
+  methods: ["GET", "POST","PUT"],
   allowedHeaders: ["Content-Type"], // Allow headers for content type
 }));
+const uploadRoutes = require('./routes/upload');
+const multipartRoutes = require('./routes/multipart');
+app.use('/api/multipart-upload', multipartRoutes);
+app.use('/api', renderRoutes);
+// Allow CORS for all routes or specify certain routes
+
 
 // Set up routes for uploading files
-app.use('/api/upload', uploadRoutes);
+app.use('/api/upload', multipartRoutes);
 
 // Set up Socket.IO with CORS settings
 const io = socketIO(server, {
@@ -86,15 +37,20 @@ const io = socketIO(server, {
   },
 });
 
-app.use(express.json());
+
 
 // Routes
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/recordings", require("./routes/recordings"));
 app.use("/api/rooms", require("./routes/rooms"));
+app.use('/api', require('./routes/process'));
+const progressiveUpload = require('./routes/upload-progressive');
+app.use(progressiveUpload);
+
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
+
 
   // Join room
   socket.on("join-room", ({ roomId }) => {

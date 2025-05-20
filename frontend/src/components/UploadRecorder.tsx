@@ -275,8 +275,8 @@ const uploadVideoToS3 = async (videoBlob: Blob) => {
     const filename = `video-${Date.now()}.webm`;
     const filetype = "video/webm";
 
+    // Step 1: Get pre-signed URL for uploading
     const res = await fetch(`http://localhost:5000/api/upload/generate-presigned-url?filename=${filename}&type=${filetype}`);
-
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Server error (${res.status}): ${text}`);
@@ -285,6 +285,7 @@ const uploadVideoToS3 = async (videoBlob: Blob) => {
     const data = await res.json();
     if (!data.url) throw new Error("Failed to get pre-signed URL");
 
+    // Step 2: Upload the video to S3
     const uploadRes = await fetch(data.url, {
       method: "PUT",
       headers: { "Content-Type": filetype },
@@ -293,8 +294,9 @@ const uploadVideoToS3 = async (videoBlob: Blob) => {
 
     if (!uploadRes.ok) throw new Error("Upload to S3 failed");
 
-    // ✅ Keep full URL (with signature) for playback
-    setVideoUrl(data.url);
+    // Step 3: Set the video URL for playback
+    // Update this line to reflect the new route that streams the video from S3
+    setVideoUrl(`http://localhost:5000/api/upload/stream-video/${filename}`);
   } catch (err: any) {
     setError("Upload failed: " + err.message);
     console.error("Upload error:", err);
